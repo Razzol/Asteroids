@@ -3,15 +3,18 @@ package se.umu.johe6327.asteroids
 import android.content.res.Resources
 import android.os.Handler
 import android.os.Looper
+import android.view.View
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.navigation.fragment.findNavController
 
 /**
  * Holds data for the different fragments and methods that save or changes the data.
  */
 class SharedViewModel(private val state: SavedStateHandle): ViewModel() {
-    val screenHeight = Resources.getSystem().displayMetrics.heightPixels
     val handler = Handler(Looper.getMainLooper())
+    val screenHeight = Resources.getSystem().displayMetrics.heightPixels
     companion object {
         private const val SHIP_TRANSLATION_X_KEY = "ship_x_coordinate"
         private const val SHIP_TRANSLATION_Y_KEY = "ship_y_coordinate"
@@ -28,10 +31,12 @@ class SharedViewModel(private val state: SavedStateHandle): ViewModel() {
     var shipX = state.get<Float>(SHIP_TRANSLATION_X_KEY) ?: 0f
     var shipY = state.get<Float>(SHIP_TRANSLATION_Y_KEY) ?: 0f
     var laserAmount = state.get<Int>(LASER_AMOUNT_KEY) ?: 0
-    var score = state.get<Int>(SCORE_KEY) ?: 0
+    private var _score = state.getLiveData(SCORE_KEY, 0)
+    val score: LiveData<Int> = _score
     var pause = state.get<Boolean>(PAUSE_KEY) ?: false
     var gameStarted = state.get<Boolean>(GAME_STARTED_KEY) ?: false
-    var shipLife = state.get<Int>(SHIP_LIFE_KEY) ?: 5
+    private var _shipLife = state.getLiveData(SHIP_LIFE_KEY, 5)
+    val shipLife: LiveData<Int> = _shipLife
     var highScores = state.get<ArrayList<Int>>(HIGH_SCORE_KEY) ?: arrayListOf()
     var laser = state.get<MutableList<Laser>>(LASER_KEY) ?: mutableListOf()
     var alien = state.get<MutableList<Alien>>(ALIEN_KEY) ?: mutableListOf()
@@ -52,8 +57,12 @@ class SharedViewModel(private val state: SavedStateHandle): ViewModel() {
         state[LASER_AMOUNT_KEY] = laserAmount
     }
     fun incrementScore(value: Int){
+        _score.value = (_score.value ?: 0) + value
+        /*
         score += value
         state[SCORE_KEY] = score
+
+         */
     }
     fun savePause(b: Boolean){
         pause = b
@@ -64,8 +73,11 @@ class SharedViewModel(private val state: SavedStateHandle): ViewModel() {
         state[GAME_STARTED_KEY] = gameStarted
     }
     fun decreaseLife(){
+        _shipLife.value = (_shipLife.value ?: 5) -1
+        /*
         shipLife --
         state[SHIP_LIFE_KEY] = shipLife
+         */
     }
     fun saveHighScore(score: Int) {
         highScores.add(score)
@@ -87,13 +99,46 @@ class SharedViewModel(private val state: SavedStateHandle): ViewModel() {
         shipX = 0f
         shipY = 0f
         laserAmount = 0
-        score = 0
+        _score.value = 0
         pause = false
         gameStarted = false
-        shipLife = 5
+        _shipLife.value = 5
         highScores.clear()
         laser.clear()
         alien.clear()
         handler.removeCallbacksAndMessages(null)
+    }
+
+
+    // Check for loose
+    fun checkForLose() : Boolean{
+        return shipLife.value == 0
+    }
+
+    // Check for pause
+    fun checkForPause() : Boolean{
+        return pause
+    }
+
+    fun startLoop() {
+        if (!checkForPause() && !checkForLose()){
+            handler.post(moveRunnable)
+        }
+    }
+
+    // Runnable i main thread
+    private val moveRunnable = object : Runnable {
+        override fun run() {
+            if (!checkForLose()){
+                if(!checkForPause()){
+                    handler.postDelayed(this, 1000 / 60) // 60 frames per second
+                    incrementScore(1)
+                }
+            }
+            else{
+                handler.removeCallbacksAndMessages(null)
+                score.value?.let { saveHighScore(it) }
+            }
+        }
     }
 }

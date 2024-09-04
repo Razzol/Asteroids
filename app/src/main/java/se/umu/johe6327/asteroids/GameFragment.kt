@@ -49,7 +49,7 @@ class GameFragment : Fragment() {
     ): View {
         _binding = FragmentGameBinding.inflate(inflater, container, false)
         val view = binding.root
-
+ 5
         binding.topAppBar!!.inflateMenu(R.menu.top_app_bar)
         asteroids = listOf<ImageView>().toMutableList()
         lasers = listOf<ImageView>().toMutableList()
@@ -97,7 +97,7 @@ class GameFragment : Fragment() {
             when (motionEvent.actionMasked) {
                 MotionEvent.ACTION_POINTER_DOWN -> {
                     if (motionEvent.pointerCount == 2) {
-                        if(!checkForPause() && (viewModel.laserAmount < 4)){
+                        if(!viewModel.checkForPause() && (viewModel.laserAmount < 4)){
                             viewModel.incrementLaser()
                             soundPool.play(laserSoundId, 0.5f, 0.5f, 0, 0, 1f)
                             createShipLaser()
@@ -111,7 +111,7 @@ class GameFragment : Fragment() {
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (!checkForPause()){
+                    if (!viewModel.checkForPause()){
                         var newX = motionEvent.rawX - ship.width / 2
                         var newY = motionEvent.rawY - ship.height / 2
 
@@ -133,6 +133,17 @@ class GameFragment : Fragment() {
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {
             findNavController().navigate(R.id.action_gameFragment_to_menuFragment)
         }
+
+        // Todo lyssnare
+        viewModel.score.observe(viewLifecycleOwner) { _ ->
+            // Update UI or perform actions based on the new score
+
+            // Todo: asteroidspawn kallas på för mycket elle en gång.
+            //viewModel.handler.post { asteroidSpawn() }
+            collision()
+            movement()
+        }
+
         return view
     }
 
@@ -198,17 +209,20 @@ class GameFragment : Fragment() {
     // Removes lifeViews from player-life
     private fun loseLife(status: String) {
         fun playing(){
-            when (viewModel.shipLife) {
+            when (viewModel.shipLife.value) {
                 4 -> {binding.life1.visibility = View.INVISIBLE }
                 3 -> {binding.life2.visibility = View.INVISIBLE }
                 2 -> {binding.life3.visibility = View.INVISIBLE }
                 1 -> {binding.life4.visibility = View.INVISIBLE }
-                0 -> {binding.life5.visibility = View.INVISIBLE }
+                0 -> {binding.life5.visibility = View.INVISIBLE
+                    viewModel.handler.postDelayed({
+                        findNavController().navigate(R.id.action_gameFragment_to_endFragment)
+                    },1000)}
             }
             soundPool.play(explosionSoundId, 1f, 1f, 0, 0, 1f)
         }
         fun resume(){
-            when (viewModel.shipLife) {
+            when (viewModel.shipLife.value) {
                 4 -> {binding.life1.visibility = View.INVISIBLE }
                 3 -> {
                     binding.life1.visibility = View.INVISIBLE
@@ -258,7 +272,6 @@ class GameFragment : Fragment() {
 
     // Load objects positions
     private fun objectPos(status: String) {
-
         fun reCreate(){
             binding.shipImageView.y = viewModel.shipY
             binding.shipImageView.x = viewModel.shipX
@@ -297,178 +310,6 @@ class GameFragment : Fragment() {
         }
     }
 
-    // Runnable i main thread
-    private val moveRunnable = object : Runnable {
-        override fun run() {
-            if (!checkForLose()){
-                movement()
-                collision()
-                if(!checkForPause()){
-                    viewModel.handler.postDelayed(this, 1000 / 60) // 60 frames per second
-                    viewModel.incrementScore(1)
-                    binding.hitsText.text = String.format(getString(R.string.score) + " %d", viewModel.score)
-                }
-            }
-            else{
-                viewModel.handler.removeCallbacksAndMessages(null)
-                viewModel.saveHighScore(viewModel.score)
-                findNavController().navigate(R.id.action_gameFragment_to_endFragment)
-            }
-        }
-        // All view collisions
-        private fun collision() {
-            fun shipHit(){
-                binding.shipImageView.setImageResource(R.drawable.ship_2)
-                viewModel.handler.postDelayed({
-                    binding.shipImageView.setImageResource(R.drawable.ship) }, 60)
-                viewModel.decreaseLife()
-                loseLife("Playing")
-            }
-            for((index, asteroid) in asteroids.withIndex()) {
-                if (game.collidesWithShip(asteroid, binding.shipImageView)) {
-                    shipHit()
-                    removeAsteroid(asteroid)
-                    val currentAsteroid = viewModel.asteroid
-                    if (index >= 0 && index < currentAsteroid.size) {
-                        currentAsteroid.remove(currentAsteroid[index])
-                    }
-                    break
-                }
-            }
-            for((index, alien) in aliens.withIndex()) {
-                if (game.collidesWithShip(alien, binding.shipImageView)) {
-                    shipHit()
-                    removeAlienView(alien)
-                    val currentAliens = viewModel.alien
-                    if (index >= 0 && index < currentAliens.size) {
-                        currentAliens.remove(currentAliens[index])
-                    }
-                    break
-                }
-            }
-            for (asteroid in asteroids){
-
-                collidesWithLaser(asteroid, "asteroid")
-            }
-            for (alien in aliens){
-                collidesWithLaser(alien, "alien")
-            }
-        }
-
-        // Movement of all views
-        private fun movement() {
-            val currentAsteroids = viewModel.asteroid
-            for((index, asteroid) in asteroids.withIndex()){
-                if (index >= 0 && index < currentAsteroids.size) {
-                    asteroid.translationY += asteroidObject.speed
-                    currentAsteroids[index].y += asteroidObject.speed
-                    if (asteroid.translationY > viewModel.screenHeight){
-                        removeAsteroid(asteroid)
-                        currentAsteroids.remove(currentAsteroids[index])
-                    }
-                }
-            }
-            val currentLasers = viewModel.laser
-            for ((index, laser) in lasers.withIndex()){
-                if (index >= 0 && index < currentLasers.size) {
-                    laser.translationY -= laserObject.speed
-                    currentLasers[index].y -= laserObject.speed
-                    if(laser.translationY < 160f){
-                        removeLaser(laser)
-                        currentLasers.remove(currentLasers[index])
-                    }
-                }
-            }
-            val currentAliens = viewModel.alien
-            for((index, alien) in aliens.withIndex()){
-                alienObject.movement(alien, currentAliens, index)
-                if (alien.translationY > viewModel.screenHeight){
-                    removeAlienView(alien)
-                    if (index >= 0 && index < currentAliens.size) {
-                        currentAliens.remove(currentAliens[index])
-                    }
-                }
-            }
-        }
-    }
-
-    // start game loop
-    private fun startLoop() {
-        if (!checkForPause() && !checkForLose()){
-            viewModel.handler.post(moveRunnable)
-            viewModel.handler.post(object : Runnable {
-                override fun run() {
-                    if (!checkForPause() && !checkForLose()){
-                        asteroidSpawn()
-                    }
-                }
-                private fun asteroidSpawn() {
-                    if (viewModel.score < 2000){
-                        createAsteroid()
-                        viewModel.handler.postDelayed(this, 1500)
-                    }
-                    else if (viewModel.score in 2001..4999){
-                        createAsteroid()
-                        viewModel.handler.postDelayed(this, 1000)
-                    }
-                    else if (viewModel.score in 5000..10000){
-                        createAsteroid()
-                        viewModel.handler.postDelayed(this, 700)
-                    }
-                    else if (viewModel.score in 10001..15000){
-                        createAsteroid()
-                        viewModel.handler.postDelayed(this, 500)
-                    }
-                    else if (viewModel.score in 15001..20000){
-                        createAsteroid()
-                        viewModel.handler.postDelayed(this, 400)
-                    }
-                    else if (viewModel.score > 20001){
-                        createAsteroid()
-                        viewModel.handler.postDelayed(this, 300)
-                    }
-                }
-            })
-            viewModel.handler.post(object : Runnable {
-                override fun run() {
-                    if (!checkForPause() && !checkForLose()){
-                        alienSpawn()
-                    }
-                }
-                private fun alienSpawn() {
-                    if (viewModel.score < 3000){
-                        createAlien()
-                        viewModel.handler.postDelayed(this, 8000)
-                    }
-                    else if (viewModel.score in 3001..5999){
-                        createAlien()
-                        viewModel.handler.postDelayed(this, 7000)
-                    }
-                    else if (viewModel.score in 6000..9000){
-                        createAlien()
-                        viewModel.handler.postDelayed(this, 6000)
-                    }
-                    else if (viewModel.score in 9001..12000){
-                        createAlien()
-                        viewModel.handler.postDelayed(this, 5000)
-                    }
-                    else if (viewModel.score in 12001..15000){
-                        createAlien()
-                        viewModel.handler.postDelayed(this, 4000)
-                    }
-                    else if (viewModel.score in 12001..15000){
-                        createAlien()
-                        viewModel.handler.postDelayed(this, 3000)
-                    }
-                    else if (viewModel.score > 15001){
-                        createAlien()
-                        viewModel.handler.postDelayed(this, 2500)
-                    }
-                }
-            })
-        }
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         viewModel.savePause(true)
@@ -482,19 +323,84 @@ class GameFragment : Fragment() {
         viewModel.saveGameStarted(true)
         viewModel.savePause(false)
         binding.startText.visibility = View.INVISIBLE
-        startLoop()
+        viewModel.startLoop()
     }
 
-    // Check for loose
-    private fun checkForLose() : Boolean{
-         return binding.life5.visibility == View.INVISIBLE
+    // All view collisions
+    private fun collision() {
+        fun shipHit(){
+            binding.shipImageView.setImageResource(R.drawable.ship_2)
+            viewModel.handler.postDelayed({
+                binding.shipImageView.setImageResource(R.drawable.ship) }, 60)
+            viewModel.decreaseLife()
+            loseLife("Playing")
+        }
+        for((index, asteroid) in asteroids.withIndex()) {
+            if (game.collidesWithShip(asteroid, binding.shipImageView)) {
+                shipHit()
+                removeAsteroid(asteroid)
+                val currentAsteroid = viewModel.asteroid
+                if (index >= 0 && index < currentAsteroid.size) {
+                    currentAsteroid.remove(currentAsteroid[index])
+                }
+                break
+            }
+        }
+        for((index, alien) in aliens.withIndex()) {
+            if (game.collidesWithShip(alien, binding.shipImageView)) {
+                shipHit()
+                removeAlienView(alien)
+                val currentAliens = viewModel.alien
+                if (index >= 0 && index < currentAliens.size) {
+                    currentAliens.remove(currentAliens[index])
+                }
+                break
+            }
+        }
+        for (asteroid in asteroids){
+
+            collidesWithLaser(asteroid, "asteroid")
+        }
+        for (alien in aliens){
+            collidesWithLaser(alien, "alien")
+        }
     }
 
-    // Check for pause
-    private fun checkForPause() : Boolean{
-        return viewModel.pause
+    // Movement of all views
+    private fun movement() {
+        val currentAsteroids = viewModel.asteroid
+        for((index, asteroid) in asteroids.withIndex()){
+            if (index >= 0 && index < currentAsteroids.size) {
+                asteroid.translationY += asteroidObject.speed
+                currentAsteroids[index].y += asteroidObject.speed
+                if (asteroid.translationY > viewModel.screenHeight){
+                    removeAsteroid(asteroid)
+                    currentAsteroids.remove(currentAsteroids[index])
+                }
+            }
+        }
+        val currentLasers = viewModel.laser
+        for ((index, laser) in lasers.withIndex()){
+            if (index >= 0 && index < currentLasers.size) {
+                laser.translationY -= laserObject.speed
+                currentLasers[index].y -= laserObject.speed
+                if(laser.translationY < 160f){
+                    removeLaser(laser)
+                    currentLasers.remove(currentLasers[index])
+                }
+            }
+        }
+        val currentAliens = viewModel.alien
+        for((index, alien) in aliens.withIndex()){
+            alienObject.movement(alien, currentAliens, index)
+            if (alien.translationY > viewModel.screenHeight){
+                removeAlienView(alien)
+                if (index >= 0 && index < currentAliens.size) {
+                    currentAliens.remove(currentAliens[index])
+                }
+            }
+        }
     }
-
     // Checks collision between laser and flying object
     private fun collidesWithLaser(flyingObject: ImageView, objectId: String) {
         for((index, laser) in lasers.withIndex()){

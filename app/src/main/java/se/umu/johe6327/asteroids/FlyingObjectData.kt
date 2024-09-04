@@ -3,10 +3,6 @@ package se.umu.johe6327.asteroids
 import android.content.res.Resources
 import kotlin.random.Random
 
-/**
- * This class contains data for all the flying objects in the game.
- */
-
 class FlyingObjectData {
     /**
      * Laser object data
