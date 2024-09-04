@@ -120,14 +120,8 @@ class SharedViewModel(private val state: SavedStateHandle): ViewModel() {
         return pause
     }
 
-    fun startLoop() {
-        if (!checkForPause() && !checkForLose()){
-            handler.post(moveRunnable)
-        }
-    }
-
     // Runnable i main thread
-    private val moveRunnable = object : Runnable {
+    val moveRunnable = object : Runnable {
         override fun run() {
             if (!checkForLose()){
                 if(!checkForPause()){

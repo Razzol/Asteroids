@@ -20,6 +20,7 @@ import androidx.navigation.fragment.findNavController
 import se.umu.johe6327.asteroids.databinding.FragmentGameBinding
 import kotlin.properties.Delegates
 import android.media.MediaPlayer
+import android.widget.Toast
 
 /**
  * Fragment that holds most of the game logic about collision, removal, creation and movement
@@ -49,7 +50,7 @@ class GameFragment : Fragment() {
     ): View {
         _binding = FragmentGameBinding.inflate(inflater, container, false)
         val view = binding.root
- 5
+
         binding.topAppBar!!.inflateMenu(R.menu.top_app_bar)
         asteroids = listOf<ImageView>().toMutableList()
         lasers = listOf<ImageView>().toMutableList()
@@ -139,12 +140,121 @@ class GameFragment : Fragment() {
             // Update UI or perform actions based on the new score
 
             // Todo: asteroidspawn kallas på för mycket elle en gång.
-            //viewModel.handler.post { asteroidSpawn() }
+            binding.hitsText.text = String.format(getString(R.string.score) + " %d", viewModel.score.value)
             collision()
             movement()
         }
 
         return view
+    }
+
+    // start game loop
+    private fun startLoop() {
+        if (!viewModel.checkForPause() && !viewModel.checkForLose()){
+            viewModel.handler.post(viewModel.moveRunnable)
+            viewModel.handler.post(object : Runnable {
+                override fun run() {
+                    if (!viewModel.checkForPause() && !viewModel.checkForLose()){
+                        asteroidSpawn()
+                    }
+                }
+                private fun asteroidSpawn() {
+                    if (viewModel.score.value!! < 2000){
+                        createAsteroid()
+                        viewModel.handler.postDelayed(this, 1500)
+                    }
+                    else if (viewModel.score.value!! in 2001..4999){
+                        createAsteroid()
+                        viewModel.handler.postDelayed(this, 1000)
+                    }
+                    else if (viewModel.score.value!! in 5000..10000){
+                        createAsteroid()
+                        viewModel.handler.postDelayed(this, 700)
+                    }
+                    else if (viewModel.score.value!! in 10001..15000){
+                        createAsteroid()
+                        viewModel.handler.postDelayed(this, 500)
+                    }
+                    else if (viewModel.score.value!! in 15001..20000){
+                        createAsteroid()
+                        viewModel.handler.postDelayed(this, 400)
+                    }
+                    else if (viewModel.score.value!! > 20001){
+                        createAsteroid()
+                        viewModel.handler.postDelayed(this, 300)
+                    }
+                }
+            })
+            viewModel.handler.post(object : Runnable {
+                override fun run() {
+                    if (!viewModel.checkForPause() && !viewModel.checkForLose()){
+                        alienSpawn()
+                    }
+                }
+                private fun alienSpawn() {
+                    if (viewModel.score.value!! < 3000){
+                        createAlien()
+                        viewModel.handler.postDelayed(this, 8000)
+                    }
+                    else if (viewModel.score.value!! in 3001..5999){
+                        createAlien()
+                        viewModel.handler.postDelayed(this, 7000)
+                    }
+                    else if (viewModel.score.value!! in 6000..9000){
+                        createAlien()
+                        viewModel.handler.postDelayed(this, 6000)
+                    }
+                    else if (viewModel.score.value!! in 9001..12000){
+                        createAlien()
+                        viewModel.handler.postDelayed(this, 5000)
+                    }
+                    else if (viewModel.score.value!! in 12001..15000){
+                        createAlien()
+                        viewModel.handler.postDelayed(this, 4000)
+                    }
+                    else if (viewModel.score.value!! in 15001..19000){
+                        createAlien()
+                        viewModel.handler.postDelayed(this, 3000)
+                    }
+                    else if (viewModel.score.value!! > 19001){
+                        createAlien()
+                        viewModel.handler.postDelayed(this, 2500)
+                    }
+                }
+            })
+        }
+    }
+    private fun asteroidSpawn() {
+        if (viewModel.score.value!! < 2000){
+            viewModel.handler.postDelayed({
+                createAsteroid()
+            }, 1500)
+        }
+        else if (viewModel.score.value!! in 2001..4999){
+            viewModel.handler.postDelayed({
+                createAsteroid()
+            }, 1000)
+        }
+        else if (viewModel.score.value!! in 5000..10000){
+            viewModel.handler.postDelayed({
+                createAsteroid()
+            }, 700)
+        }
+        else if (viewModel.score.value!! in 10001..15000){
+            viewModel.handler.postDelayed({
+                createAsteroid()
+            }, 500)
+        }
+        else if (viewModel.score.value!! in 15001..20000){
+            viewModel.handler.postDelayed({
+                createAsteroid()
+            }, 400)
+        }
+        else if (viewModel.score.value!! > 20001){
+            viewModel.handler.postDelayed({
+                createAsteroid()
+            }, 300)
+        }
     }
 
     // Sets information for top bar
@@ -203,7 +313,7 @@ class GameFragment : Fragment() {
     // Keeps the game score
     private fun scoreCount(score: Int) {
         viewModel.incrementScore(score)
-        binding.hitsText.text = String.format(getString(R.string.score) + " %d", viewModel.score)
+        binding.hitsText.text = String.format(getString(R.string.score) + " %d", viewModel.score.value)
     }
 
     // Removes lifeViews from player-life
@@ -215,9 +325,7 @@ class GameFragment : Fragment() {
                 2 -> {binding.life3.visibility = View.INVISIBLE }
                 1 -> {binding.life4.visibility = View.INVISIBLE }
                 0 -> {binding.life5.visibility = View.INVISIBLE
-                    viewModel.handler.postDelayed({
-                        findNavController().navigate(R.id.action_gameFragment_to_endFragment)
-                    },1000)}
+                    findNavController().navigate(R.id.action_gameFragment_to_endFragment)}
             }
             soundPool.play(explosionSoundId, 1f, 1f, 0, 0, 1f)
         }
@@ -323,7 +431,7 @@ class GameFragment : Fragment() {
         viewModel.saveGameStarted(true)
         viewModel.savePause(false)
         binding.startText.visibility = View.INVISIBLE
-        viewModel.startLoop()
+        startLoop()
     }
 
     // All view collisions
