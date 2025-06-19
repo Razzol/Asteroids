@@ -6,7 +6,7 @@ import android.widget.ImageView
 /**
  * Helping class that checks collisions between views.
  */
-class Game {
+class Collision {
     // Checks collision between laser and flying object
     fun laserCheck(laser: ImageView, flyingObject: ImageView): Boolean {
         val rect1 = Rect()

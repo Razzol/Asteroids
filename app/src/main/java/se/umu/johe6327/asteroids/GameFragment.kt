@@ -36,7 +36,7 @@ class GameFragment : Fragment() {
     private lateinit var laserObject: Laser
     private lateinit var asteroidObject: Asteroid
     private val objectData = FlyingObjectData()
-    private val game = Game()
+    private val game = Collision()
     private lateinit var soundPool: SoundPool
     private var explosionSoundId by Delegates.notNull<Int>()
     private lateinit var mediaPlayer: MediaPlayer
@@ -252,7 +252,7 @@ class GameFragment : Fragment() {
 
     // reset game
     private fun resetAttributes() {
-        viewModel.resetGame()
+        viewModel.resetGameSessionVariables()
         binding.gameFragment.invalidate()
     }
 
