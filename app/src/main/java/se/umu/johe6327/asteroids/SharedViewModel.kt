@@ -89,7 +89,7 @@ class SharedViewModel(
                     loadedScores.add(scoreValue)
                 }
             }
-            Log.d("SharedViewModel", "Succesfully read ${loadedScores.size} scores from file.")
+            Log.d("SharedViewModel", "Successfully read ${loadedScores.size} scores from file.")
         } catch (e: Exception) {
             Log.d("SharedViewModel", "Error reading highscores file: ${e.message}", e)
         } finally {
