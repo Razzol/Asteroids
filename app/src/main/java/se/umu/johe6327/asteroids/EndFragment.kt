@@ -16,10 +16,10 @@ import se.umu.johe6327.asteroids.databinding.FragmentEndBinding
  * Shows highScores for the current game and others played withing this playing session.
  */
 class EndFragment : Fragment() {
-    private val viewModel:SharedViewModel by activityViewModels()
+    private val viewModel: SharedViewModel by activityViewModels()
     private var _binding: FragmentEndBinding? = null
     private val binding get() = _binding!!
-    private var unSortedArray = arrayListOf<Int>()
+    private var displayedScores = arrayListOf<Int>()
     private lateinit var mediaPlayer: MediaPlayer
 
     override fun onCreateView(
@@ -30,10 +30,7 @@ class EndFragment : Fragment() {
         _binding = FragmentEndBinding.inflate(inflater, container, false)
         val view = binding.root
         binding.topAppBar.inflateMenu(R.menu.top_app_bar)
-        (activity as MainActivity?)!!.readFromFile()
-        copyHighScore()
-        loadHighScores()
-        (activity as MainActivity?)!!.saveToFile(unSortedArray)
+        populateAndDisplayHighScoresFromViewModel()
         stars()
         mediaPlayer = MediaPlayer.create(requireContext(), R.raw.bakgroundsound)
         mediaPlayer.isLooping = true // Set to loop the sound
@@ -47,7 +44,7 @@ class EndFragment : Fragment() {
         binding.topAppBar.setOnMenuItemClickListener {
             when (it.itemId) {
                 R.id.info -> {
-                    information()
+                    showInformationDialog()
                     true
                 }
                 else -> false
@@ -66,104 +63,36 @@ class EndFragment : Fragment() {
         starAnimation.start()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        mediaPlayer.stop()
-        mediaPlayer.release()
+    private fun populateAndDisplayHighScoresFromViewModel() {
+        displayedScores.clear()
+        displayedScores.addAll(viewModel.highScores)
+        uppdateHighScoreTextViews()
     }
 
-    // information
-    private fun information(){
-        val builder = AlertDialog.Builder(context)
+    private fun uppdateHighScoreTextViews() {
+        val scoreTextViews = listOf(
+            binding.score1, binding.score2, binding.score3, binding.score4, binding.score5,
+            binding.score6, binding.score7, binding.score8, binding.score9, binding.score10
+        )
+        scoreTextViews.forEach { it.text = "" }
+        for (i in 0 until minOf(displayedScores.size, scoreTextViews.size)) {
+            scoreTextViews[i].text = "${i + 1}. ${displayedScores[i]}"
+        }
+    }
+
+    private fun showInformationDialog() {
+        val builder = AlertDialog.Builder(requireContext())
         builder.setMessage(R.string.howToRestart).setCancelable(true)
         val alert = builder.create()
         alert.show()
     }
 
-    // Sorts top 10 scores
-    private fun copyHighScore() {
-        for (score in viewModel.highScores){
-            unSortedArray.add(score)
+    override fun onDestroyView() {
+        super.onDestroyView()
+        if (::mediaPlayer.isInitialized) {
+            mediaPlayer.stop()
+            mediaPlayer.release()
         }
-        unSortedArray.sortDescending()
-    }
-
-    // Load GUI with top 10 scores
-    private fun loadHighScores() {
-        if (unSortedArray.size == 1){
-            binding.score1.text = String.format(getString(R.string._1) + " %d", unSortedArray[0])
-        }
-        else if (unSortedArray.size == 2){
-            binding.score1.text = String.format(getString(R.string._1) + " %d", unSortedArray[0])
-            binding.score2.text = String.format(getString(R.string._2) + " %d", unSortedArray[1])
-        }
-        else if (unSortedArray.size == 3){
-            binding.score1.text = String.format(getString(R.string._1) + " %d", unSortedArray[0])
-            binding.score2.text = String.format(getString(R.string._2) + " %d", unSortedArray[1])
-            binding.score3.text = String.format(getString(R.string._3) + " %d", unSortedArray[2])
-        }
-        else if (unSortedArray.size == 4){
-            binding.score1.text = String.format(getString(R.string._1) + " %d", unSortedArray[0])
-            binding.score2.text = String.format(getString(R.string._2) + " %d", unSortedArray[1])
-            binding.score3.text = String.format(getString(R.string._3) + " %d", unSortedArray[2])
-            binding.score4.text = String.format(getString(R.string._4) + " %d", unSortedArray[3])
-        }
-        else if (unSortedArray.size == 5){
-            binding.score1.text = String.format(getString(R.string._1) + " %d", unSortedArray[0])
-            binding.score2.text = String.format(getString(R.string._2) + " %d", unSortedArray[1])
-            binding.score3.text = String.format(getString(R.string._3) + " %d", unSortedArray[2])
-            binding.score4.text = String.format(getString(R.string._4) + " %d", unSortedArray[3])
-            binding.score5.text = String.format(getString(R.string._5) + " %d", unSortedArray[4])
-        }
-        else if (unSortedArray.size == 6){
-            binding.score1.text = String.format(getString(R.string._1) + " %d", unSortedArray[0])
-            binding.score2.text = String.format(getString(R.string._2) + " %d", unSortedArray[1])
-            binding.score3.text = String.format(getString(R.string._3) + " %d", unSortedArray[2])
-            binding.score4.text = String.format(getString(R.string._4) + " %d", unSortedArray[3])
-            binding.score5.text = String.format(getString(R.string._5) + " %d", unSortedArray[4])
-            binding.score6.text = String.format(getString(R.string._6) + " %d", unSortedArray[5])
-        }
-        else if (unSortedArray.size == 7) {
-            binding.score1.text = String.format(getString(R.string._1) + " %d", unSortedArray[0])
-            binding.score2.text = String.format(getString(R.string._2) + " %d", unSortedArray[1])
-            binding.score3.text = String.format(getString(R.string._3) + " %d", unSortedArray[2])
-            binding.score4.text = String.format(getString(R.string._4) + " %d", unSortedArray[3])
-            binding.score5.text = String.format(getString(R.string._5) + " %d", unSortedArray[4])
-            binding.score6.text = String.format(getString(R.string._6) + " %d", unSortedArray[5])
-            binding.score7.text = String.format(getString(R.string._7) + " %d", unSortedArray[6])
-        }
-        else if (unSortedArray.size == 8) {
-            binding.score1.text = String.format(getString(R.string._1) + " %d", unSortedArray[0])
-            binding.score2.text = String.format(getString(R.string._2) + " %d", unSortedArray[1])
-            binding.score3.text = String.format(getString(R.string._3) + " %d", unSortedArray[2])
-            binding.score4.text = String.format(getString(R.string._4) + " %d", unSortedArray[3])
-            binding.score5.text = String.format(getString(R.string._5) + " %d", unSortedArray[4])
-            binding.score6.text = String.format(getString(R.string._6) + " %d", unSortedArray[5])
-            binding.score7.text = String.format(getString(R.string._7) + " %d", unSortedArray[6])
-            binding.score8.text = String.format(getString(R.string._8) + " %d", unSortedArray[7])
-        }
-        else if (unSortedArray.size == 9) {
-            binding.score1.text = String.format(getString(R.string._1) + " %d", unSortedArray[0])
-            binding.score2.text = String.format(getString(R.string._2) + " %d", unSortedArray[1])
-            binding.score3.text = String.format(getString(R.string._3) + " %d", unSortedArray[2])
-            binding.score4.text = String.format(getString(R.string._4) + " %d", unSortedArray[3])
-            binding.score5.text = String.format(getString(R.string._5) + " %d", unSortedArray[4])
-            binding.score6.text = String.format(getString(R.string._6) + " %d", unSortedArray[5])
-            binding.score7.text = String.format(getString(R.string._7) + " %d", unSortedArray[6])
-            binding.score8.text = String.format(getString(R.string._8) + " %d", unSortedArray[7])
-            binding.score9.text = String.format(getString(R.string._9) + " %d", unSortedArray[8])
-        }
-        else if (unSortedArray.size == 10 || unSortedArray.size > 10) {
-            binding.score1.text = String.format(getString(R.string._1) + " %d", unSortedArray[0])
-            binding.score2.text = String.format(getString(R.string._2) + " %d", unSortedArray[1])
-            binding.score3.text = String.format(getString(R.string._3) + " %d", unSortedArray[2])
-            binding.score4.text = String.format(getString(R.string._4) + " %d", unSortedArray[3])
-            binding.score5.text = String.format(getString(R.string._5) + " %d", unSortedArray[4])
-            binding.score6.text = String.format(getString(R.string._6) + " %d", unSortedArray[5])
-            binding.score7.text = String.format(getString(R.string._7) + " %d", unSortedArray[6])
-            binding.score8.text = String.format(getString(R.string._8) + " %d", unSortedArray[7])
-            binding.score9.text = String.format(getString(R.string._9) + " %d", unSortedArray[8])
-            binding.score10.text = String.format(getString(R.string._10) + " %d", unSortedArray[9])
-        }
+        _binding = null
     }
 }

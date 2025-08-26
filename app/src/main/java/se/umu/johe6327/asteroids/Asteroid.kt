@@ -2,11 +2,13 @@ package se.umu.johe6327.asteroids
 
 import android.os.Parcel
 import android.os.Parcelable
+import java.util.UUID
 
 /**
  * Asteroid objects parameters and methods
  */
 data class Asteroid(
+    val id: String = UUID.randomUUID().toString(),
     var width: Int,
     var height: Int,
     var x: Float,
@@ -15,6 +17,7 @@ data class Asteroid(
 ) : Parcelable {
 
     constructor(parcel: Parcel) : this(
+        parcel.readString()!!,
         parcel.readInt(),
         parcel.readInt(),
         parcel.readFloat(),
@@ -23,6 +26,7 @@ data class Asteroid(
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeString(id)
         parcel.writeInt(width)
         parcel.writeInt(height)
         parcel.writeFloat(x)
