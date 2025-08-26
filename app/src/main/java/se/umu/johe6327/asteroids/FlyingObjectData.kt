@@ -14,8 +14,6 @@ class FlyingObjectData {
     val laserWidth = 30
     val laserHeight = 45
     val laserSpeed = 15
-    val laserX = 515F
-    val laserY = (Resources.getSystem().displayMetrics.heightPixels/1.3f)
 
     /**
      * Alien object data
@@ -29,8 +27,6 @@ class FlyingObjectData {
     val alienSpeedX = 10
     val rightBorder = (Resources.getSystem().displayMetrics.widthPixels) - alienWidth.toFloat()
     val leftBorder = 0.toFloat()
-    val wallR = true
-    val wallL = false
 
     /**
      * Asteroid object data

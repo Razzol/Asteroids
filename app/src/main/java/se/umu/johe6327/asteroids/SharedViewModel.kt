@@ -27,16 +27,15 @@ class SharedViewModel(
     companion object {
         private const val SHIP_TRANSLATION_X_KEY = "ship_x_coordinate"
         private const val SHIP_TRANSLATION_Y_KEY = "ship_y_coordinate"
-        private const val LASER_AMOUNT_KEY = "laser_amount"
         private const val SCORE_KEY = "score"
         private const val PAUSE_KEY = "pause"
         private const val GAME_STARTED_KEY = "game_started"
         private const val SHIP_LIFE_KEY = "ship_life"
         const val HIGH_SCORE_KEY = "high_scores"
         private const val HIGH_SCORES_FILENAME = "highScore.text"
-        private const val LASER_KEY = "laser"
-        private const val ALIEN_KEY = "alien"
-        private const val ASTEROID_KEY = "asteroid"
+        private const val LASER_KEY = "laser_list"
+        private const val ALIEN_KEY = "alien_list"
+        private const val ASTEROID_KEY = "asteroid_list"
     }
 
     var highScores: ArrayList<Int>
@@ -58,14 +57,16 @@ class SharedViewModel(
 
     var shipX = state.get<Float>(SHIP_TRANSLATION_X_KEY) ?: 0f
     var shipY = state.get<Float>(SHIP_TRANSLATION_Y_KEY) ?: 0f
-    var laserAmount = state.get<Int>(LASER_AMOUNT_KEY) ?: 0
     var score = state.get<Int>(SCORE_KEY) ?: 0
     var pause = state.get<Boolean>(PAUSE_KEY) ?: false
     var gameStarted = state.get<Boolean>(GAME_STARTED_KEY) ?: false
     var shipLife = state.get<Int>(SHIP_LIFE_KEY) ?: 5
-    var laser = state.get<MutableList<Laser>>(LASER_KEY) ?: mutableListOf()
-    var alien = state.get<MutableList<Alien>>(ALIEN_KEY) ?: mutableListOf()
-    var asteroid = state.get<MutableList<Asteroid>>(ASTEROID_KEY) ?: mutableListOf()
+    var laser: MutableList<Laser> = state.get<ArrayList<Laser>>(LASER_KEY)?.toMutableList() ?: mutableListOf()
+        private set
+    var alien: MutableList<Alien> = state.get<ArrayList<Alien>>(ALIEN_KEY)?.toMutableList() ?: mutableListOf()
+        private set
+    var asteroid: MutableList<Asteroid> = state.get<ArrayList<Asteroid>>(ASTEROID_KEY)?.toMutableList() ?: mutableListOf()
+        private set
 
     private fun loadHighScoresFromFile(): ArrayList<Int> {
         val loadedScores = ArrayList<Int>()
@@ -127,7 +128,6 @@ class SharedViewModel(
             val content = highScores.joinToString("\n")
             fileOutputStream = context.openFileOutput(HIGH_SCORES_FILENAME, Context.MODE_PRIVATE)
             fileOutputStream.write(content.toByteArray())
-            //Log.d("SharedViewModel", "High scores saved to file.")
             Log.d("SharedViewModel", "High scores saved to file: $highScores")
         } catch (e: Exception) {
             Log.d("SharedViewModel", "Error saving high scores file: ${e.message}", e)
@@ -141,10 +141,8 @@ class SharedViewModel(
     }
 
     fun resetGameSessionVariables(){
-        Log.d("SharedViewModel", "--- resetGameSessionVariables() CALLED ---")
         shipX = 0f
         shipY = 0f
-        laserAmount = 0
         score = 0   //current games score reset to 0
         pause = false
         gameStarted = false // a new game session hasn't started yet
@@ -153,18 +151,22 @@ class SharedViewModel(
         alien.clear()
         asteroid.clear()
         handler.removeCallbacksAndMessages(null)
+        laser = mutableListOf()
+        alien = mutableListOf()
+        asteroid = mutableListOf()
 
+        state[LASER_KEY] = ArrayList(laser)
+        state[ALIEN_KEY] = ArrayList(alien)
+        state[ASTEROID_KEY] = ArrayList(asteroid)
         state[SHIP_TRANSLATION_X_KEY] = shipX
         state[SHIP_TRANSLATION_Y_KEY] = shipY
-        state[LASER_AMOUNT_KEY] = laserAmount
         state[SCORE_KEY] = score
         state[PAUSE_KEY] = pause
         state[GAME_STARTED_KEY] = gameStarted
         state[SHIP_LIFE_KEY] = shipLife
-        state[LASER_KEY] = laser // Persist cleared lists if that's the intent
+        state[LASER_KEY] = laser
         state[ALIEN_KEY] = alien
         state[ASTEROID_KEY] = asteroid
-        Log.d("SharedViewModel", "Game session variables reset.")
     }
 
     fun DANGEROUSLY_CLEAR_ALL_HIGH_SCORES_DEBUG_ONLY() {
@@ -174,19 +176,96 @@ class SharedViewModel(
         saveHighScoresToFile() // This will save an empty list
     }
 
+    // --- Functions to ADD objects ---
+
+    fun addLaserObject(newLaser: Laser) {
+        val newList = laser.toMutableList() // Create a new list to ensure LiveData/StateFlow updates if you use them
+        newList.add(newLaser)
+        laser = newList
+        state[LASER_KEY] = ArrayList(laser) // Save to SavedStateHandle (ArrayList is Parcelable)
+        Log.d("ViewModelLaser", "[ADD] Laser ID ${newLaser.id} ADDED. New viewModel.laser.size: ${laser.size}")
+    }
+
+    fun addAlienObject(newAlien: Alien) {
+        val newList = alien.toMutableList()
+        newList.add(newAlien)
+        alien = newList
+        state[ALIEN_KEY] = ArrayList(alien)
+    }
+
+    fun addAsteroidObject(newAsteroid: Asteroid) {
+        val newList = asteroid.toMutableList()
+        newList.add(newAsteroid)
+        asteroid = newList
+        state[ASTEROID_KEY] = ArrayList(asteroid)
+    }
+
+    // --- Functions to REMOVE objects by ID ---
+
+    fun removeLaserById(id: String) {
+        Log.d("ViewModelLaser", "[PRE_REMOVE_ATTEMPT] Attempting to remove ID: $id. Current IDs: [${laser.joinToString { it.id }}]. Current size: ${laser.size}")
+        val newList = laser.toMutableList()
+        val initialSize = newList.size
+        if (newList.removeAll { it.id == id }) { // removeAll returns true if the list was changed
+            laser = newList
+            state[LASER_KEY] = ArrayList(laser)
+            Log.d("ViewModelLaser", "[REMOVE_SUCCESS] Laser ID $id REMOVED. Size changed from $initialSize to ${laser.size}. New IDs: [${laser.joinToString { it.id }}]")
+        } else {
+            Log.w("ViewModelLaser", "[REMOVE_FAIL] Laser ID $id NOT FOUND for removal. List remains: [${laser.joinToString { it.id }}]. Size: ${laser.size}")
+        }
+    }
+
+    fun removeAlienById(id: String) {
+        val newList = alien.toMutableList()
+        if (newList.removeAll { it.id == id }) {
+            alien = newList
+            state[ALIEN_KEY] = ArrayList(alien)
+        }
+    }
+
+    fun removeAsteroidById(id: String) {
+        val newList = asteroid.toMutableList()
+        if (newList.removeAll { it.id == id }) {
+            asteroid = newList
+            state[ASTEROID_KEY] = ArrayList(asteroid)
+        }
+    }
+
+    // --- Functions to UPDATE object properties BY ID ---
+
+    fun updateAsteroidPosition(id: String, newX: Float, newY: Float) {
+        val foundAsteroid = asteroid.find { it.id == id }
+        if (foundAsteroid != null) {
+            foundAsteroid.x = newX
+            foundAsteroid.y = newY
+            state[ASTEROID_KEY] = ArrayList(asteroid)
+        }
+    }
+
+    fun updateAlienPositionAndState(id: String, newX: Float, newY: Float, newMovingRight: Boolean) {
+        val foundAlien = alien.find { it.id == id }
+        if (foundAlien != null) {
+            foundAlien.x = newX
+            foundAlien.y = newY
+            foundAlien.movingRight = newMovingRight
+            state[ALIEN_KEY] = ArrayList(alien)
+        }
+    }
+
+    fun updateLaserPosition(id: String, newX: Float, newY: Float) {
+        val foundLaser = laser.find { it.id == id }
+        if (foundLaser != null) {
+            foundLaser.x = newX
+            foundLaser.y = newY
+            state[LASER_KEY] = ArrayList(laser)
+        }
+    }
+
     fun saveShipCoordinates(x: Float, y: Float) {
         shipX = x
         shipY = y
         state[SHIP_TRANSLATION_X_KEY] = shipX
         state[SHIP_TRANSLATION_Y_KEY] = shipY
-    }
-    fun incrementLaser(){
-        laserAmount += 1
-        state[LASER_AMOUNT_KEY] = laserAmount
-    }
-    fun decreaseLaser(){
-        laserAmount -= 1
-        state[LASER_AMOUNT_KEY] = laserAmount
     }
     fun incrementScore(value: Int){
         score += value
@@ -203,17 +282,5 @@ class SharedViewModel(
     fun decreaseLife(){
         shipLife --
         state[SHIP_LIFE_KEY] = shipLife
-    }
-    fun saveLaserObject(laserObject: Laser) {
-        laser.add(laserObject)
-        state[LASER_KEY] = laser
-    }
-    fun saveAlienObject(alienObject: Alien) {
-        alien.add(alienObject)
-        state[ALIEN_KEY] = alien
-    }
-    fun saveAsteroidObject(asteroidObject: Asteroid){
-        asteroid.add(asteroidObject)
-        state[ASTEROID_KEY] = asteroid
     }
 }
